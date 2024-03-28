@@ -3,6 +3,9 @@
 #include <cstdint>
 
 #include <opencv2/core/mat.hpp>
+#include <opencv2/highgui.hpp>
+#include <rclcpp/logger.hpp>
+#include <rclcpp/logging.hpp>
 #include <stdexcept>
 #include <variant>
 #include <vector>
@@ -67,10 +70,12 @@ std::tuple<int, double> NumberIdentify::Identify(cv::Mat& img) {
 }
 
 cv::Mat NumberIdentify::_BlobImage(cv::Mat& img) {
-    cv::resize(img, img, cv::Size(36, 36));
     cv::cvtColor(img, img, cv::COLOR_BGR2GRAY);
-    cv::GaussianBlur(img, img, cv::Size(5, 5), 0, 0);
-    cv::threshold(img, img, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
+    // cv::GaussianBlur(img, img, cv::Size(5, 5), 0, 0);
+    cv::threshold(img, img, 00, 255, cv::THRESH_BINARY);
+
+    cv::resize(img, img, cv::Size(36, 36));
+    cv::imshow("roi", img);
 
     return img;
 }
@@ -267,9 +272,8 @@ public:
     Impl()
         : _blueIdentifier(228.0f)
         , _redIdentifier(11.0f)
-        // TODO： 模型路径优化
-        , _identify(
-              NumberIdentify("/workspaces/RMCS/rmcs_ws/src/ugas/models/armoridentify_v3.onnx")) {}
+        // TODO： 模型路径优化 install/ugas/lib/ugas/models/armoridentify_v3.onnx
+        , _identify(NumberIdentify("install/ugas/lib/ugas/models/armoridentify_v3.onnx")) {}
 
     inline std::vector<ArmorPlate> detect(const cv::Mat& img, ArmorColor target_color) {
         cv::Mat threshold_img, gray_img;
@@ -421,6 +425,7 @@ private:
         for (auto& sample : matched) {
             cv::Mat roi;
             perspective(img, sample, roi);
+
             auto res        = _identify.Identify(roi);
             auto code       = std::get<0>(res);
             auto confidence = std::get<1>(res);
@@ -428,6 +433,9 @@ private:
             if (confidence < 0.5) {
                 continue;
             }
+
+            std::cout << "[+] Detected Armor:" << code << " with confidence of " << confidence
+                      << std::endl;
 
             switch ((ArmorId)code) {
             case ArmorId::LARGE_III:
@@ -522,17 +530,28 @@ private:
      */
     inline static void
         perspective(const cv::Mat& img, MatchedLightBar& match_lightbar, cv::Mat& roi) {
-        auto leftHeight  = cv::norm(match_lightbar.top_left() - match_lightbar.bottom_left());
-        auto rightHeight = cv::norm(match_lightbar.top_right() - match_lightbar.bottom_right());
+        cv::Point2f top_left, bottom_left, top_right, bottom_right;
+
+        top_left = match_lightbar.top_left()
+                 + (match_lightbar.top_left() - match_lightbar.bottom_left()) * 120.0 / 56;
+        bottom_left = match_lightbar.bottom_left()
+                    - (match_lightbar.top_left() - match_lightbar.bottom_left()) * 120.0 / 56;
+        top_right = match_lightbar.top_right()
+                  + (match_lightbar.top_right() - match_lightbar.bottom_right()) * 120.0 / 56;
+        bottom_right = match_lightbar.bottom_right()
+                     - (match_lightbar.top_right() - match_lightbar.bottom_right()) * 120.0 / 56;
+
+        auto leftHeight  = cv::norm(top_left - bottom_left);
+        auto rightHeight = cv::norm(top_right - bottom_right);
         auto maxHeight   = std::max(leftHeight, rightHeight);
 
-        auto upWidth   = cv::norm(match_lightbar.top_left() - match_lightbar.top_right());
-        auto downWidth = cv::norm(match_lightbar.bottom_left() - match_lightbar.bottom_right());
+        auto upWidth   = cv::norm(top_left - top_right);
+        auto downWidth = cv::norm(bottom_left - bottom_right);
         auto maxWidth  = std::max(upWidth, downWidth);
 
         cv::Point2f srcAffinePts[4] = {
-            cv::Point2f(match_lightbar.top_left()), cv::Point2f(match_lightbar.top_right()),
-            cv::Point2f(match_lightbar.bottom_right()), cv::Point2f(match_lightbar.bottom_left())};
+            cv::Point2f(top_left), cv::Point2f(top_right), cv::Point2f(bottom_right),
+            cv::Point2f(bottom_left)};
         cv::Point2f dstAffinePts[4] = {
             cv::Point2f(0, 0), cv::Point2f(maxWidth, 0), cv::Point2f(maxWidth, maxHeight),
             cv::Point2f(0, maxHeight)};

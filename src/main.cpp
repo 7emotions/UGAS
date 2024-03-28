@@ -37,13 +37,14 @@ private:
 
         while (rclcpp::ok()) {
             if (fps_counter.count())
-                std::cout << "fps: " << fps_counter.get_fps() << '\n';
+                RCLCPP_INFO(this->get_logger(), "fps: %d ", fps_counter.get_fps());
+            // std::cout << "fps: " << fps_counter.get_fps() << '\n';
 
             auto image  = image_capturer.read();
             auto armors = armor_detector.detect(image, ArmorDetector::ArmorColor::BLUE);
 
-            // cv::imshow("image", image);
-            // cv::waitKey(1);
+            cv::imshow("image", image);
+            cv::waitKey(1);
 
             if (armors.empty())
                 continue;
