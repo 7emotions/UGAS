@@ -1,8 +1,11 @@
 #include "armor_detector.hpp"
 
+#include <algorithm>
 #include <cstdint>
 
+#include <opencv2/core.hpp>
 #include <opencv2/core/mat.hpp>
+#include <opencv2/core/types.hpp>
 #include <opencv2/highgui.hpp>
 #include <rclcpp/logger.hpp>
 #include <rclcpp/logging.hpp>
@@ -72,7 +75,7 @@ std::tuple<int, double> NumberIdentify::Identify(cv::Mat& img) {
 cv::Mat NumberIdentify::_BlobImage(cv::Mat& img) {
     cv::cvtColor(img, img, cv::COLOR_BGR2GRAY);
     // cv::GaussianBlur(img, img, cv::Size(5, 5), 0, 0);
-    cv::threshold(img, img, 00, 255, cv::THRESH_BINARY);
+    cv::threshold(img, img, 5, 255, cv::THRESH_BINARY);
 
     cv::resize(img, img, cv::Size(36, 36));
     cv::imshow("roi", img);
@@ -285,6 +288,7 @@ public:
 
         auto lightbars = solve_lightbars(img, contours, target_color);
         auto matched_lightbars = match_lightbars(lightbars, img); // 其中包括数字神经网络识别
+                                                                  // TODO : Armor
         auto result = solve_pnp(matched_lightbars);
 
         return result;
@@ -309,6 +313,7 @@ private:
             points[3] = right.top;
 
             isLarge = false;
+            id      = ArmorId::UNKNOWN;
         }
 
         cv::Point2f top_left() const { return points[0]; }
@@ -317,7 +322,8 @@ private:
         cv::Point2f top_right() const { return points[3]; }
 
         cv::Point2f points[4];
-        bool isLarge;                                             // 大装甲板标志
+        bool isLarge; // 大装甲板标志
+        ArmorId id;
     };
 
     inline std::vector<LightBar> solve_lightbars(
@@ -434,16 +440,20 @@ private:
                 continue;
             }
 
-            std::cout << "[+] Detected Armor:" << code << " with confidence of " << confidence
-                      << std::endl;
-
             switch ((ArmorId)code) {
-            case ArmorId::LARGE_III:
-            case ArmorId::LARGE_IV:
-            case ArmorId::LARGE_V: sample.isLarge = true; break;
+            case ArmorId::INFANTRY_III:
+            case ArmorId::INFANTRY_IV:
+            case ArmorId::INFANTRY_V: {
+                if (sample.isLarge) {
+                    code += 4;
+                }
+            }
             default: break;
             }
 
+            std::cout << "Armor:" << code << " with confidence of " << confidence << std::endl;
+
+            sample.id = (ArmorId)code;
             flitered.push_back(sample);
         }
 
@@ -508,7 +518,7 @@ private:
                     Eigen::AngleAxisd{rvec_eigen.norm(), rvec_eigen.normalized()}
                 };
 
-                armors.emplace_back(ArmorId::UNKNOWN, position, rotation);
+                armors.emplace_back(matched.id, position, rotation);
             }
         }
 
@@ -530,16 +540,32 @@ private:
      */
     inline static void
         perspective(const cv::Mat& img, MatchedLightBar& match_lightbar, cv::Mat& roi) {
+        auto center = (match_lightbar.bottom_left() + match_lightbar.bottom_right()
+                       + match_lightbar.top_left() + match_lightbar.top_right())
+                    / 4.0;
+
         cv::Point2f top_left, bottom_left, top_right, bottom_right;
 
-        top_left = match_lightbar.top_left()
-                 + (match_lightbar.top_left() - match_lightbar.bottom_left()) * 120.0 / 56;
-        bottom_left = match_lightbar.bottom_left()
-                    - (match_lightbar.top_left() - match_lightbar.bottom_left()) * 120.0 / 56;
-        top_right = match_lightbar.top_right()
-                  + (match_lightbar.top_right() - match_lightbar.bottom_right()) * 120.0 / 56;
-        bottom_right = match_lightbar.bottom_right()
-                     - (match_lightbar.top_right() - match_lightbar.bottom_right()) * 120.0 / 56;
+        auto left  = match_lightbar.top_left() - match_lightbar.bottom_left();
+        auto up    = match_lightbar.top_right() - match_lightbar.top_left();
+        auto right = match_lightbar.top_right() - match_lightbar.bottom_right();
+        auto down  = match_lightbar.bottom_right() - match_lightbar.bottom_left();
+
+        auto width = std::max(cv::norm(up), cv::norm(down));
+
+        auto length = cv::norm(left) + cv::norm(right);
+        length /= 2.0;
+        length *= 1.2;
+
+        left /= cv::norm(left);
+        up /= cv::norm(up);
+        right /= cv::norm(right);
+        down /= cv::norm(down);
+
+        top_left     = center + length * (left - up);
+        top_right    = center + length * (right + up);
+        bottom_left  = center + length * (-left - down);
+        bottom_right = center + length * (-right + down);
 
         auto leftHeight  = cv::norm(top_left - bottom_left);
         auto rightHeight = cv::norm(top_right - bottom_right);
@@ -548,6 +574,10 @@ private:
         auto upWidth   = cv::norm(top_left - top_right);
         auto downWidth = cv::norm(bottom_left - bottom_right);
         auto maxWidth  = std::max(upWidth, downWidth);
+
+        if (maxWidth * 1.5 < width) {
+            match_lightbar.isLarge = true;
+        }
 
         cv::Point2f srcAffinePts[4] = {
             cv::Point2f(top_left), cv::Point2f(top_right), cv::Point2f(bottom_right),
@@ -558,6 +588,8 @@ private:
 
         auto affineMat = cv::getPerspectiveTransform(srcAffinePts, dstAffinePts);
         cv::warpPerspective(img, roi, affineMat, cv::Point(maxWidth, maxHeight));
+
+        cv::imshow("Warp", roi);
     }
 
     ColorIdentifier _blueIdentifier, _redIdentifier;
