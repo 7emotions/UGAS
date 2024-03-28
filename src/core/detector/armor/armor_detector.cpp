@@ -10,6 +10,7 @@
 #include <rclcpp/logger.hpp>
 #include <rclcpp/logging.hpp>
 #include <stdexcept>
+#include <string>
 #include <variant>
 #include <vector>
 
@@ -75,7 +76,7 @@ std::tuple<int, double> NumberIdentify::Identify(cv::Mat& img) {
 cv::Mat NumberIdentify::_BlobImage(cv::Mat& img) {
     cv::cvtColor(img, img, cv::COLOR_BGR2GRAY);
     // cv::GaussianBlur(img, img, cv::Size(5, 5), 0, 0);
-    cv::threshold(img, img, 5, 255, cv::THRESH_BINARY);
+    cv::threshold(img, img, 1, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
 
     cv::resize(img, img, cv::Size(36, 36));
     cv::imshow("roi", img);
@@ -445,6 +446,7 @@ private:
             case ArmorId::INFANTRY_IV:
             case ArmorId::INFANTRY_V: {
                 if (sample.isLarge) {
+                    std::cout << "Large Armor" << std::endl;
                     code += 4;
                 }
             }
@@ -452,6 +454,13 @@ private:
             }
 
             std::cout << "Armor:" << code << " with confidence of " << confidence << std::endl;
+            auto center = (sample.bottom_left() + sample.bottom_right() + sample.top_left()
+                           + sample.top_right())
+                        / 4.0;
+
+            cv::putText(
+                img, std::to_string(code), center, cv::FONT_HERSHEY_COMPLEX, 1,
+                cv::Scalar(0, 0, 255));
 
             sample.id = (ArmorId)code;
             flitered.push_back(sample);
@@ -555,7 +564,7 @@ private:
 
         auto length = cv::norm(left) + cv::norm(right);
         length /= 2.0;
-        length *= 1.2;
+        length *= 1.3;
 
         left /= cv::norm(left);
         up /= cv::norm(up);
@@ -588,8 +597,6 @@ private:
 
         auto affineMat = cv::getPerspectiveTransform(srcAffinePts, dstAffinePts);
         cv::warpPerspective(img, roi, affineMat, cv::Point(maxWidth, maxHeight));
-
-        cv::imshow("Warp", roi);
     }
 
     ColorIdentifier _blueIdentifier, _redIdentifier;

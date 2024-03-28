@@ -43,7 +43,7 @@ private:
             auto image  = image_capturer.read();
             auto armors = armor_detector.detect(image, ArmorDetector::ArmorColor::BLUE);
 
-            cv::imshow("image", image);
+            cv::imshow("img", image);
             cv::waitKey(1);
 
             if (armors.empty())
