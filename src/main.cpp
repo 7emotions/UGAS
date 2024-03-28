@@ -1,3 +1,5 @@
+
+#include <opencv2/core.hpp>
 #include <thread>
 
 #include <eigen3/Eigen/Dense>
@@ -31,22 +33,34 @@ private:
     void thread_main() {
         FpsCounter fps_counter;
 
-        hikcamera::ImageCapturer image_capturer;
+        hikcamera::ImageCapturer::CameraProfile camera_profile;
+        {
+            using namespace std::chrono_literals;
+            camera_profile.exposure_time = 3ms;
+            camera_profile.gain          = 16.9807;
+        }
+        hikcamera::ImageCapturer image_capturer(camera_profile);
         ArmorDetector armor_detector;
         BallisticSolver ballistic_solver;
 
         while (rclcpp::ok()) {
             if (fps_counter.count())
-                std::cout << "fps: " << fps_counter.get_fps() << '\n';
+                RCLCPP_INFO(this->get_logger(), "fps: %d ", fps_counter.get_fps());
+            // std::cout << "fps: " << fps_counter.get_fps() << '\n';
 
             auto image  = image_capturer.read();
             auto armors = armor_detector.detect(image, ArmorDetector::ArmorColor::BLUE);
 
-            // cv::imshow("image", image);
-            // cv::waitKey(1);
-
-            if (armors.empty())
+            cv::imshow("img", image);
+            cv::waitKey(1);
+            geometry_msgs::msg::Vector3 msg;
+            if (armors.empty()) {
+                msg.x = 0;
+                msg.y = 0;
+                msg.z = 0;
+                aiming_direction_publisher_->publish(msg);
                 continue;
+            }
 
             geometry_msgs::msg::TransformStamped camera_link_to_odom, odom_to_muzzle_link;
             try {
@@ -97,7 +111,6 @@ private:
             auto delta_pitch = Eigen::AngleAxisd{0.012, gimbal_pose * Eigen::Vector3d::UnitY()};
             aiming_direction = (delta_pitch * (delta_yaw * aiming_direction)).eval();
 
-            geometry_msgs::msg::Vector3 msg;
             msg.x = aiming_direction.x();
             msg.y = aiming_direction.y();
             msg.z = aiming_direction.z();
