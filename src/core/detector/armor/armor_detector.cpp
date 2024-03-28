@@ -288,7 +288,6 @@ public:
 
         auto lightbars = solve_lightbars(img, contours, target_color);
         auto matched_lightbars = match_lightbars(lightbars, img); // 其中包括数字神经网络识别
-                                                                  // TODO : Armor
         auto result = solve_pnp(matched_lightbars);
 
         return result;
@@ -322,7 +321,7 @@ private:
         cv::Point2f top_right() const { return points[3]; }
 
         cv::Point2f points[4];
-        bool isLarge; // 大装甲板标志
+        bool isLarge;                                             // 大装甲板标志
         ArmorId id;
     };
 
@@ -441,13 +440,11 @@ private:
             }
 
             switch ((ArmorId)code) {
-            case ArmorId::INFANTRY_III:
-            case ArmorId::INFANTRY_IV:
-            case ArmorId::INFANTRY_V: {
-                if (sample.isLarge) {
-                    std::cout << "Large Armor" << std::endl;
-                    code += 4;
-                }
+            case ArmorId::LARGE_III:
+            case ArmorId::LARGE_IV:
+            case ArmorId::LARGE_V: {
+                sample.isLarge = true;
+                break;
             }
             default: break;
             }
@@ -458,7 +455,7 @@ private:
                         / 4.0;
 
             cv::putText(
-                img, std::to_string(code), center, cv::FONT_HERSHEY_COMPLEX, 1,
+                img, std::to_string(code), center, cv::FONT_HERSHEY_COMPLEX, 2,
                 cv::Scalar(0, 0, 255));
 
             sample.id = (ArmorId)code;
@@ -548,9 +545,6 @@ private:
      */
     inline static void
         perspective(const cv::Mat& img, MatchedLightBar& match_lightbar, cv::Mat& roi) {
-        auto center = (match_lightbar.bottom_left() + match_lightbar.bottom_right()
-                       + match_lightbar.top_left() + match_lightbar.top_right())
-                    / 4.0;
 
         cv::Point2f top_left, bottom_left, top_right, bottom_right;
 
@@ -559,21 +553,15 @@ private:
         auto right = match_lightbar.top_right() - match_lightbar.bottom_right();
         auto down  = match_lightbar.bottom_right() - match_lightbar.bottom_left();
 
-        auto width = std::max(cv::norm(up), cv::norm(down));
+        auto length = (cv::norm(left) + cv::norm(right)) / 2.0;
 
-        auto length = cv::norm(left) + cv::norm(right);
-        length /= 2.0;
-        length *= 1.25;
+        up *= 0.2 * length / cv::norm(up);
+        down *= 0.2 * length / cv::norm(down);
 
-        left /= cv::norm(left);
-        up /= cv::norm(up);
-        right /= cv::norm(right);
-        down /= cv::norm(down);
-
-        top_left     = center + length * (left - up);
-        top_right    = center + length * (right + up);
-        bottom_left  = center + length * (-left - down);
-        bottom_right = center + length * (-right + down);
+        top_left     = match_lightbar.top_left() + 0.5 * left + up;
+        top_right    = match_lightbar.top_right() + 0.5 * right - up;
+        bottom_left  = match_lightbar.bottom_left() - 0.5 * left + down;
+        bottom_right = match_lightbar.bottom_right() - 0.5 * right - down;
 
         auto leftHeight  = cv::norm(top_left - bottom_left);
         auto rightHeight = cv::norm(top_right - bottom_right);
@@ -582,10 +570,6 @@ private:
         auto upWidth   = cv::norm(top_left - top_right);
         auto downWidth = cv::norm(bottom_left - bottom_right);
         auto maxWidth  = std::max(upWidth, downWidth);
-
-        if (maxWidth * 1.5 < width) {
-            match_lightbar.isLarge = true;
-        }
 
         cv::Point2f srcAffinePts[4] = {
             cv::Point2f(top_left), cv::Point2f(top_right), cv::Point2f(bottom_right),
