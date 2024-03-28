@@ -216,8 +216,8 @@ private:
         int maxFitY[renderSize];
         for (int i = 0; i < renderSize; ++i)
             maxFitY[i] = -1;
-        for (int i = 0; i < renderSize; ++i) {     // x
-            for (int j = 0; j < renderSize; ++j) { // y
+        for (int i = 0; i < renderSize; ++i) {                    // x
+            for (int j = 0; j < renderSize; ++j) {                // y
                 auto& hsv = imgHSV.at<cv::Vec3f>(j, i);
                 if (min_hue_ < hsv[0] && hsv[0] < max_hue_ && hsv[1] > min_saturation_
                     && hsv[2] > min_value_) {
@@ -235,8 +235,8 @@ private:
                     imgBGR.at<cv::Vec3f>(j, i) = {1.0f, 1.0f, 1.0f};
             }
         }
-        for (int i = 0; i < renderSize; ++i) {     // x
-            for (int j = 0; j < maxFitY[i]; ++j) { // y
+        for (int i = 0; i < renderSize; ++i) {                    // x
+            for (int j = 0; j < maxFitY[i]; ++j) {                // y
                 auto& pixel = imgMap.at<uint8_t>(j, i);
                 if (pixel != static_cast<uint8_t>(Confidence::CredibleZeroChannelOverexposure))
                     pixel = static_cast<uint8_t>(Confidence::CredibleOneChannelOverexposure);
@@ -276,7 +276,6 @@ public:
     Impl()
         : _blueIdentifier(228.0f)
         , _redIdentifier(11.0f)
-        // TODO： 模型路径优化 install/ugas/lib/ugas/models/armoridentify_v3.onnx
         , _identify(NumberIdentify("install/ugas/lib/ugas/models/armoridentify_v3.onnx")) {}
 
     inline std::vector<ArmorPlate> detect(const cv::Mat& img, ArmorColor target_color) {
@@ -564,7 +563,7 @@ private:
 
         auto length = cv::norm(left) + cv::norm(right);
         length /= 2.0;
-        length *= 1.3;
+        length *= 1.25;
 
         left /= cv::norm(left);
         up /= cv::norm(up);
