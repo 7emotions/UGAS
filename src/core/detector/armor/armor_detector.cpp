@@ -316,6 +316,8 @@ private:
 
             isLarge = false;
             id      = ArmorId::UNKNOWN;
+
+            center = (points[0] + points[1] + points[2] + points[3]) / 4.0;
         }
 
         cv::Point2f top_left() const { return points[0]; }
@@ -326,6 +328,7 @@ private:
         cv::Point2f points[4];
         bool isLarge;                                             // 大装甲板标志
         ArmorId id;
+        cv::Point2f center;
     };
 
     inline std::vector<LightBar> solve_lightbars(
@@ -453,17 +456,23 @@ private:
             }
 
             // std::cout << "Armor:" << code << " with confidence of " << confidence << std::endl;
-            auto center = (sample.bottom_left() + sample.bottom_right() + sample.top_left()
-                           + sample.top_right())
-                        / 4.0;
 
             cv::putText(
-                img, std::to_string(code), center, cv::FONT_HERSHEY_COMPLEX, 2,
+                img, std::to_string(code), sample.center, cv::FONT_HERSHEY_COMPLEX, 2,
                 cv::Scalar(0, 0, 255));
 
             sample.id = (ArmorId)code;
             flitered.push_back(sample);
         }
+
+        auto center = cv::Point2f(img.size[0], img.size[1]) / 2;
+        std::sort(
+            flitered.begin(), flitered.end(),
+            [&center](const MatchedLightBar& a, const MatchedLightBar& b) {
+                auto da = cv::norm(a.center - center);
+                auto db = cv::norm(b.center - center);
+                return da > db;
+            });
 
         return flitered;
     }
@@ -507,7 +516,6 @@ private:
 
             if (matched.isLarge) {
                 objectPoints = LargeArmorObjectPoints;
-                // Mar 27 fix 装甲板大小 Feng
             }
 
             if (cv::solvePnP(
@@ -517,7 +525,7 @@ private:
                 Eigen::Vector3d position = {
                     tvec.at<double>(2), -tvec.at<double>(0), -tvec.at<double>(1)};
                 position = position / 1000.0;
-                if (position.norm() > 15.0)
+                if (position.norm() > 10.0)
                     continue;
 
                 Eigen::Vector3d rvec_eigen = {
