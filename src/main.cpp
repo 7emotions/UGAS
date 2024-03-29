@@ -1,4 +1,5 @@
 
+#include <ctime>
 #include <opencv2/core.hpp>
 #include <thread>
 
@@ -44,6 +45,8 @@ private:
         ArmorDetector armor_detector;
         BallisticSolver ballistic_solver;
 
+        clock_t no_target_timestamp = 0;
+
         while (rclcpp::ok()) {
             if (fps_counter.count())
                 RCLCPP_INFO(this->get_logger(), "fps: %d ", fps_counter.get_fps());
@@ -54,13 +57,26 @@ private:
             // cv::imshow("img", image);
             // cv::waitKey(1);
             geometry_msgs::msg::Vector3 msg;
+
             if (armors.empty()) {
-                msg.x = 0;
-                msg.y = 0;
-                msg.z = 0;
-                aiming_direction_publisher_->publish(msg);
+                if (no_target_timestamp == 0) {
+                    no_target_timestamp = clock();
+                } else {
+                    auto timestamp = clock();
+
+                    auto duration =
+                        (double)(timestamp - no_target_timestamp) / CLOCKS_PER_SEC * 1000;
+
+                    if (duration > 500) {
+                        msg.x = 0;
+                        msg.y = 0;
+                        msg.z = 0;
+                        aiming_direction_publisher_->publish(msg);
+                    }
+                }
                 continue;
             }
+            no_target_timestamp = clock();
 
             geometry_msgs::msg::TransformStamped camera_link_to_odom, odom_to_muzzle_link;
             try {

@@ -424,7 +424,7 @@ private:
             }
         }
 
-        std::vector<MatchedLightBar> flitered; // 数字识别过滤后的装甲板容器
+        std::vector<MatchedLightBar> flitered;
 
         for (auto& sample : matched) {
             cv::Mat roi;
