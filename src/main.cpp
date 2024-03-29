@@ -38,6 +38,7 @@ private:
             using namespace std::chrono_literals;
             camera_profile.exposure_time = 3ms;
             camera_profile.gain          = 16.9807;
+            camera_profile.invert_image  = true;
         }
         hikcamera::ImageCapturer image_capturer(camera_profile);
         ArmorDetector armor_detector;
@@ -84,8 +85,8 @@ private:
 
             visualization_msgs::msg::Marker aiming_point_;
             aiming_point_.header.frame_id = "odom";
-            aiming_point_.type    = visualization_msgs::msg::Marker::SPHERE;
-            aiming_point_.action  = visualization_msgs::msg::Marker::ADD;
+            aiming_point_.type            = visualization_msgs::msg::Marker::SPHERE;
+            aiming_point_.action          = visualization_msgs::msg::Marker::ADD;
             aiming_point_.scale.x = aiming_point_.scale.y = aiming_point_.scale.z = 0.05;
             aiming_point_.color.r                                                 = 1.0;
             aiming_point_.color.g                                                 = 0.0;
@@ -103,10 +104,10 @@ private:
                 odom_to_muzzle_link.transform.translation.y,
                 odom_to_muzzle_link.transform.translation.z};
 
-            auto aiming_direction = ballistic_solver.solve(target, muzzle, 27.5);
+            auto aiming_direction = ballistic_solver.solve(target, muzzle, 28.0);
 
-            auto delta_yaw   = Eigen::AngleAxisd{-0.005, gimbal_pose * Eigen::Vector3d::UnitZ()};
-            auto delta_pitch = Eigen::AngleAxisd{0.012, gimbal_pose * Eigen::Vector3d::UnitY()};
+            auto delta_yaw   = Eigen::AngleAxisd{-0.008, gimbal_pose * Eigen::Vector3d::UnitZ()};
+            auto delta_pitch = Eigen::AngleAxisd{0.000, gimbal_pose * Eigen::Vector3d::UnitY()};
             aiming_direction = (delta_pitch * (delta_yaw * aiming_direction)).eval();
 
             msg.x = aiming_direction.x();
