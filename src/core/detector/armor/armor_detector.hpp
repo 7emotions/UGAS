@@ -23,7 +23,6 @@ public:
         LARGE_V      = 9,
         OUTPOST      = 10,
         BASE         = 11,
-        // Mar 27 适配数字神经网络识别结果
     };
 
     struct ArmorPlate {

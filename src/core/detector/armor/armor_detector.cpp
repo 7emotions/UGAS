@@ -18,7 +18,6 @@
 #include <eigen3/Eigen/Dense>
 #include <opencv2/opencv.hpp>
 
-// 数字神经网络接口
 class NumberIdentifyInterface {
 public:
     virtual ~NumberIdentifyInterface()                     = default;
@@ -39,7 +38,7 @@ private:
 /**
  * @brief Construct a new Number Identify:: Number Identify object
  *
- * @param modelPath 支持onnx与pb模型
+ * @param modelPath Support .pb and .onnx model
  */
 NumberIdentify::NumberIdentify(std::string modelPath) {
     if (modelPath.find(".onnx") != std::variant_npos) {
@@ -53,12 +52,6 @@ NumberIdentify::NumberIdentify(std::string modelPath) {
         throw std::runtime_error("Cannot open model file!");
 }
 
-/**
- * @brief 输出识别结果与置信度，识别结果可转ArmorDetector::ArmorId枚举类
- *
- * @param img
- * @return std::tuple<int, double>
- */
 std::tuple<int, double> NumberIdentify::Identify(cv::Mat& img) {
     cv::Mat inputImage = _BlobImage(img);
     cv::Mat blobImage  = cv::dnn::blobFromImage(inputImage, 1.0, cv::Size(36, 36), false, false);
@@ -326,7 +319,7 @@ private:
         cv::Point2f top_right() const { return points[3]; }
 
         cv::Point2f points[4];
-        bool isLarge;                                             // 大装甲板标志
+        bool isLarge;
         ArmorId id;
         cv::Point2f center;
     };
@@ -548,7 +541,7 @@ private:
     };
 
     /**
-     * @brief 透视矫正
+     * @brief Get rectangle ROI via Affine transforming and cropping the image
      *
      * @param img org
      * @param match_lightbar 矫正特征点

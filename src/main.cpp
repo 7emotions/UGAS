@@ -84,8 +84,8 @@ private:
 
             visualization_msgs::msg::Marker aiming_point_;
             aiming_point_.header.frame_id = "odom";
-            aiming_point_.type    = visualization_msgs::msg::Marker::SPHERE;
-            aiming_point_.action  = visualization_msgs::msg::Marker::ADD;
+            aiming_point_.type            = visualization_msgs::msg::Marker::SPHERE;
+            aiming_point_.action          = visualization_msgs::msg::Marker::ADD;
             aiming_point_.scale.x = aiming_point_.scale.y = aiming_point_.scale.z = 0.05;
             aiming_point_.color.r                                                 = 1.0;
             aiming_point_.color.g                                                 = 0.0;
