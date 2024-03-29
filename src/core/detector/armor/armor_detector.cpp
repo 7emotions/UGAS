@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstdint>
 
+#include <ament_index_cpp/get_package_share_directory.hpp>
 #include <opencv2/core.hpp>
 #include <opencv2/core/mat.hpp>
 #include <opencv2/core/types.hpp>
@@ -79,7 +80,7 @@ cv::Mat NumberIdentify::_BlobImage(cv::Mat& img) {
     cv::threshold(img, img, 1, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
 
     cv::resize(img, img, cv::Size(36, 36));
-    cv::imshow("roi", img);
+    // cv::imshow("roi", img);
 
     return img;
 }
@@ -276,7 +277,9 @@ public:
     Impl()
         : _blueIdentifier(228.0f)
         , _redIdentifier(11.0f)
-        , _identify(NumberIdentify("install/ugas/lib/ugas/models/armoridentify_v3.onnx")) {}
+        , _identify(NumberIdentify(
+              ament_index_cpp::get_package_share_directory("ugas")
+              + "/models/armoridentify_v3.onnx")) {}
 
     inline std::vector<ArmorPlate> detect(const cv::Mat& img, ArmorColor target_color) {
         cv::Mat threshold_img, gray_img;
@@ -449,7 +452,7 @@ private:
             default: break;
             }
 
-            std::cout << "Armor:" << code << " with confidence of " << confidence << std::endl;
+            // std::cout << "Armor:" << code << " with confidence of " << confidence << std::endl;
             auto center = (sample.bottom_left() + sample.bottom_right() + sample.top_left()
                            + sample.top_right())
                         / 4.0;

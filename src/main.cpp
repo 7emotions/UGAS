@@ -46,13 +46,12 @@ private:
         while (rclcpp::ok()) {
             if (fps_counter.count())
                 RCLCPP_INFO(this->get_logger(), "fps: %d ", fps_counter.get_fps());
-            // std::cout << "fps: " << fps_counter.get_fps() << '\n';
 
             auto image  = image_capturer.read();
             auto armors = armor_detector.detect(image, ArmorDetector::ArmorColor::BLUE);
 
-            cv::imshow("img", image);
-            cv::waitKey(1);
+            // cv::imshow("img", image);
+            // cv::waitKey(1);
             geometry_msgs::msg::Vector3 msg;
             if (armors.empty()) {
                 msg.x = 0;
@@ -85,7 +84,6 @@ private:
 
             visualization_msgs::msg::Marker aiming_point_;
             aiming_point_.header.frame_id = "odom";
-            // aiming_point_.ns = "aiming_point";
             aiming_point_.type    = visualization_msgs::msg::Marker::SPHERE;
             aiming_point_.action  = visualization_msgs::msg::Marker::ADD;
             aiming_point_.scale.x = aiming_point_.scale.y = aiming_point_.scale.z = 0.05;

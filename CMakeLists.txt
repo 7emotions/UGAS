@@ -38,7 +38,7 @@ target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBS})
 
 install(
     DIRECTORY models/
-    DESTINATION lib/${PROJECT_NAME}/models
+    DESTINATION share/${PROJECT_NAME}/models
 )
 
 ament_auto_package()
