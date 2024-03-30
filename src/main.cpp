@@ -76,7 +76,6 @@ private:
                 }
                 continue;
             }
-            no_target_timestamp = clock();
 
             geometry_msgs::msg::TransformStamped camera_link_to_odom, odom_to_muzzle_link;
             try {
@@ -130,6 +129,8 @@ private:
             msg.y = aiming_direction.y();
             msg.z = aiming_direction.z();
             aiming_direction_publisher_->publish(msg);
+
+            no_target_timestamp = clock();
         }
     }
 
