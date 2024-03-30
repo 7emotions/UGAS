@@ -18,7 +18,6 @@
 #include <eigen3/Eigen/Dense>
 #include <opencv2/opencv.hpp>
 
-// 数字神经网络接口
 class NumberIdentifyInterface {
 public:
     virtual ~NumberIdentifyInterface()                     = default;
@@ -39,7 +38,7 @@ private:
 /**
  * @brief Construct a new Number Identify:: Number Identify object
  *
- * @param modelPath 支持onnx与pb模型
+ * @param modelPath Support .pb and .onnx model
  */
 NumberIdentify::NumberIdentify(std::string modelPath) {
     if (modelPath.find(".onnx") != std::variant_npos) {
@@ -53,12 +52,6 @@ NumberIdentify::NumberIdentify(std::string modelPath) {
         throw std::runtime_error("Cannot open model file!");
 }
 
-/**
- * @brief 输出识别结果与置信度，识别结果可转ArmorDetector::ArmorId枚举类
- *
- * @param img
- * @return std::tuple<int, double>
- */
 std::tuple<int, double> NumberIdentify::Identify(cv::Mat& img) {
     cv::Mat inputImage = _BlobImage(img);
     cv::Mat blobImage  = cv::dnn::blobFromImage(inputImage, 1.0, cv::Size(36, 36), false, false);
@@ -316,6 +309,8 @@ private:
 
             isLarge = false;
             id      = ArmorId::UNKNOWN;
+
+            center = (points[0] + points[1] + points[2] + points[3]) / 4.0;
         }
 
         cv::Point2f top_left() const { return points[0]; }
@@ -324,8 +319,9 @@ private:
         cv::Point2f top_right() const { return points[3]; }
 
         cv::Point2f points[4];
-        bool isLarge;                                             // 大装甲板标志
+        bool isLarge;
         ArmorId id;
+        cv::Point2f center;
     };
 
     inline std::vector<LightBar> solve_lightbars(
@@ -428,7 +424,7 @@ private:
             }
         }
 
-        std::vector<MatchedLightBar> flitered; // 数字识别过滤后的装甲板容器
+        std::vector<MatchedLightBar> flitered;
 
         for (auto& sample : matched) {
             cv::Mat roi;
@@ -453,17 +449,23 @@ private:
             }
 
             // std::cout << "Armor:" << code << " with confidence of " << confidence << std::endl;
-            auto center = (sample.bottom_left() + sample.bottom_right() + sample.top_left()
-                           + sample.top_right())
-                        / 4.0;
 
             cv::putText(
-                img, std::to_string(code), center, cv::FONT_HERSHEY_COMPLEX, 2,
+                img, std::to_string(code), sample.center, cv::FONT_HERSHEY_COMPLEX, 2,
                 cv::Scalar(0, 0, 255));
 
             sample.id = (ArmorId)code;
             flitered.push_back(sample);
         }
+
+        auto center = cv::Point2f(img.size[0], img.size[1]) / 2;
+        std::sort(
+            flitered.begin(), flitered.end(),
+            [&center](const MatchedLightBar& a, const MatchedLightBar& b) {
+                auto da = cv::norm(a.center - center);
+                auto db = cv::norm(b.center - center);
+                return da > db;
+            });
 
         return flitered;
     }
@@ -507,7 +509,6 @@ private:
 
             if (matched.isLarge) {
                 objectPoints = LargeArmorObjectPoints;
-                // Mar 27 fix 装甲板大小 Feng
             }
 
             if (cv::solvePnP(
@@ -517,7 +518,7 @@ private:
                 Eigen::Vector3d position = {
                     tvec.at<double>(2), -tvec.at<double>(0), -tvec.at<double>(1)};
                 position = position / 1000.0;
-                if (position.norm() > 15.0)
+                if (position.norm() > 10.0)
                     continue;
 
                 Eigen::Vector3d rvec_eigen = {
@@ -540,7 +541,7 @@ private:
     };
 
     /**
-     * @brief 透视矫正
+     * @brief Get rectangle ROI via Affine transforming and cropping the image
      *
      * @param img org
      * @param match_lightbar 矫正特征点
